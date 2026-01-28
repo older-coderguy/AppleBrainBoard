@@ -1,0 +1,299 @@
+              BINTEL.DOC  Version 1.0  February 1987            page 1 of 6 
+    
+                     BINTEL.COM Binary-Intel Hex Convertor 
+                              -- R. M. Baldwin --
+                                        
+    BINTEL is a utility program for inter-converting binary files and Intel
+    Hex files.  Intel Hex files are a form of ASCII representation of binary
+    data with error-checking.  The program was written as a utility for
+    downloading binary files after building Steve Ciarcia's Circuit Cellar
+    Serial EPROM Programmer ("CCSP" or "SEPP"), described in the October
+    1986 issue of Byte.
+    
+    In Intel Hex format, binary data are encoded in groups of records called
+    'paragraphs', typically 16 bytes per paragraph.  Each paragraph is begun
+    with a colon (':') and ended with a carriage return.  For example:
+    
+    Binary data = (in hex)
+    
+     31 80 08 3E 89 D3 03 AF D3 00 D3 01 06 07 11 FF
+     FF 21 FF FF 19 DA 14 00 10 F7 3E 10 D3
+    
+    Intel Hex Representation (in ASCII) =
+    
+     :100000003180083E89D303AFD300D301060711FF27 (1st paragraph  = 16 bytes)
+     :0D001000FF21FFFF19DA140010F73E10D396       (2nd paragraph  = 13 bytes)
+     :00000001FF                                 (last paragraph =  0 bytes)
+    
+    Meaning of each field:
+    
+    Colon  Data    Address of  Paragr  Data (pairs of nibbles)    CRC
+           Count    1st data   Type     in ASCII form          (check sum)
+                      byte
+    
+      :     10       0000       00      31 80 08 3E ...    FF     27
+      :     0D       0010       00      FF 21 FF FF ... D3        96
+      :     00       0000       01      {none}                    FF
+    
+    All numbers are in upper-case Ascii hexadecimal representation.
+    
+    Data count: # data bytes in the paragraph.
+    Address:    Address (offset) where 1st data byte goes.
+    Para type:  00 = not the end yet, 01 = last paragraph.
+    CRC:        Check sum = 2's complement of the 8-bit addition  of the
+                binary values of all the other bytes. (ie the sum of the CRC
+                plus all the other bytes = 0).
+    Delimiter:  Each "paragraph" is ended with a carriage return.
+    
+    The last paragraph is a null paragraph, with zero data bytes; its para-
+    graph attribute is '01'.
+    
+    [Reference:  Bill Curlew, Circuit Cellar BBS msg #4221 (10/27/86)]
+    
+    This program is hereby donated to the public domain for non-commercial
+    use and distribution without restrictions (and without guarantees).  I
+    would appreciate feedback on the program,  especially bugs.  I can be
+    reached on an irregular basis on BIX (bixname rmb).
+    
+                     Ron Baldwin, Concord, CA, March, 1987.
+              BINTEL.DOC  Version 1.0  February 1987            page 2 of 6 
+    
+                       REQUIREMENTS FOR RUNNING BINTEL.COM
+                       -----------------------------------
+    
+    MS-DOS or PC-DOS 2.00 or later,  at least one disk drive. BINTEL uses
+    standard DOS function calls and doesn't do anything specific to IBM-
+    compatible hardware, so it *should* work on any MS DOS machine. I have
+    used it successfully  with a true blue IBM PC, several flavors of Com-
+    paqs, and a Hewlett-Packard HP110 portable.  It was developed on a PC
+    clone built from Display Telecommunications Corporation MegaBoard, with
+    448K RAM on the motherboard, a NEC V20 CPU, and 20 MB hard disk.
+    
+    The disk storage space required can be calculated roughly from the
+    following relationship:
+    
+    Hex = 13 + [(Bin div 16) * (13 + 2*16)] + [13 + 2 * (Bin mod 16)] + 1
+    
+    where Hex = size of Hex file in bytes
+          Bin = size of binary file in bytes
+    
+    
+                                 CAVEATS & NOTES
+                                 ---------------
+    
+      1.  Obviously, the program was written to satisfy my idiosyncrasies
+    and with my applications in mind. Not being a professional programmer,
+    the program may not be coded in the most efficient way.
+    
+      2. The binary to hex conversion was done first as a quick-and-dirty
+    proposition, just to download a hardware diagnostic routine; then I went
+    back to add the hex to binary conversion. I tried to redo it to avoid
+    overlapping functions, but there are still redundancies and inconsistent
+    ways of doing things.
+    
+      3. The assembly source is in BINTEL.ASM. It was assembled with Micro-
+    soft Macro Assembler (MASM) 4.00.  All the equates and macros are listed
+    near the beginning of the program.
+    
+      4. The buffers for input and output data can be enlarged for faster
+    running with large files. The variables BinBufSize and Hex BufSize con-
+    tain the number of bytes allocated to each. They are defined in terms of
+    the number of 'paragraphs', whose length in bytes is given by RecLen. As
+    written, the binary buffer is set at 16 paragraphs (256 bytes) and the
+    hex buffer is set at 3 times the binary for a total of 1 K allocated to
+    data buffers.
+    
+              BINTEL.DOC  Version 1.0  February 1987            page 3 of 6 
+    
+                        DIRECTIONS FOR USE OF BINTEL.COM
+                        --------------------------------
+    
+    BINARY FILE TO INTEL HEX FILE CONVERSION
+    
+    To convert a binary file into Intel hex format, enter BINTEL with the
+    name of the file to be converted.  If no extension is entered, then a
+    default extension will be supplied.  The default file extensions are BIN
+    and COM, in that order of priority; ie, if files TEST.BIN & TEST.COM are
+    both in the current directory, then TEST.BIN will be processed in pref-
+    erence to TEST.COM, unless you specifically enter BINTEL TEST.COM.  A
+    file with the same file name but with the extension HEX will be created
+    for output.  You can specify any extension by typing it in explicitly;
+    enter the filename with only a dot if there is no extension.
+    
+      * NOTE: no check is made to prevent over-writing an existing file. *
+    
+    Examples:
+    
+     bintel test     converts TEST.BIN to TEST.HEX
+     bintel test.    converts TEST     to TEST.HEX
+     bintel foo.bar  converts FOO.BAR  to  FOO.HEX
+     bintel c:\path1\path2\foobar
+            converts C:\PATH1\PATH2\FOOBAR.BIN to C:\PATH1\PATH2\FOOBAR.HEX
+    
+    The extension BIN was chosen to avoid confusion with MS DOS executable
+    COM files.  Since my application is to program 2716 EPROMs for a process
+    controller, using Z80 code, the starting address (offset) is set arbit-
+    rarily at zero.  Any relocation can usually be handled at the EPROM pro-
+    grammer end if needed. (Future versions may allow specifying the start-
+    ing address).
+    
+    Sixteen byte paragraphs are chosen by default.  If not an even multiple
+    of 16 bytes, the next to last paragraph will contain less than 16 data
+    bytes. The last paragraph is always a null paragraph with 0 data bytes.
+    
+    Paragraphs are terminated with carriage return, line feed to make the
+    HEX files easier to examine with text editors or from DOS. Since most
+    terminal emulator communications programs transmit ASCII data terminated
+    with carriage return only, there is no conflict, and anyway, strict
+    interpretation of Intel hex format should ignore anything between the
+    carriage return and the next ':'.  BINTEL itself is even less picky (see
+    below).
+    
+    The progress of the conversion is shown by displaying the hexadecimal
+    paragraph address continuously.  The address of the last paragraph with
+    data will be showing when the program ends.
+    
+              BINTEL.DOC  Version 1.0  February 1987            page 4 of 6 
+    
+    INTEL HEX FILE TO BINARY FILE CONVERSION
+    
+    The command switch /H directs BINTEL to interpret the filename as an
+    ASCII file in Intel Hex format and to convert it to a binary file. The
+    default extension for the input file is HEX, but can be overridden by
+    explicitly entering an extension; the output file is invariably given
+    the extension BIN.
+    
+     * NOTE: no check is made to prevent over-writing an existing file. *
+    
+    Examples:
+    
+      bintel test  /h     converts TEST.HEX to TEST.BIN
+      bintel test.asc /h  converts TEST.ASC to TEST.BIN
+      bintel test. /h     converts TEST     to TEST.BIN
+    
+    In processing the [ASCII] file, BINTEL ignores everything but what comes
+    between the ':' and the carriage return signifying the end of the para-
+    graph.  This means that the file can be liberally interspersed with com-
+    ments, if desired, so long as a colon (':') does not appear in the text.
+    Also, all characters other than '0' to '9' and 'A' to 'F' (upper or low-
+    er case) are ignored, so that spaces can be used, if desired, to improve
+    the legibility of the ASCII file.  Actually, even embedded carriage re-
+    turns and control characters can be present, since the program counts
+    the paragraph from the data byte value and the Intel syntax rather than
+    looking for the carriage return.  Some very strange looking "text" files
+    can thus be converted.
+    
+    Although the structure of the Intel specification appears to allow flex-
+    ibility in the order in which the paragraphs are arranged (for instance,
+    the paragraph at address 01F0 might appear earlier in the file than add-
+    ress 0020), BINTEL assumes that the paragraphs are arranged in contig-
+    uous ascending order, and assembles the binary file accordingly. If it
+    detects a discontinuity, it will give an error message as a warning, but
+    otherwise it ignores the file's address value.
+    
+    BINTEL keeps track of the CRC, and if its calculation doesn't agree with
+    the value stored in the paragraph, it will flag and display the offen-
+    ding line number and paragraph number, but will continue to process the
+    file.  CRC errors may indicate errors in transmitting the file if it was
+    up- or downloaded, or incorrect format of the hex file.
+    
+    The progress of the conversion is shown by displaying the decimal line
+    number (marked by carriage return) and the paragraph number continuous-
+    ly. The number of the last line and last paragraph will show on the
+    screen when it's done.
+              BINTEL.DOC  Version 1.0  February 1987            page 5 of 6 
+    
+                               ERROR MESSAGES
+                               --------------
+    
+    To keep the program relatively simple, BINTEL has only rudimentary
+    error-correcting features.  If it encounters a serious error, it will
+    exit with a 'generic' message indicating the general nature of the
+    problem.  It provides a return code when it exits to DOS, which can be
+    checked with the DOS function ERRORLEVEL, by including a statement like
+    'if not errorlevel 1 goto Next' in the batch file.
+    
+    The meaning of the return codes are:
+      0 = successful completion (no error)
+      1 = 'serious' error
+      2 = warning.
+    
+    Here is a list of the error messages and their most likely causes.
+    
+     1. Wrong DOS version ...
+    
+        BINTEL uses DOS 2.xx function calls, and requires MS DOS or PC DOS
+        2.0 or later.
+    
+     2. Error trying to open file:  FILENAME.IN     (return code 1)
+    
+        File not found.  Possibilities: 
+        a) the filename was misspelled;
+        b) the file doesn't have the extension BIN or COM and the extension
+           wasn't specified;  to process file FOOBAR (no extension) enter
+           "BINTEL FOOBAR." (a dot with no extension);
+        c) the drive or path (if used) was entered incorrectly.
+        d) Other possibilities are invalid characters in the name, or
+           anything else that normally makes DOS choke.
+    
+     3. Error reading file:  FILENAME.IN            (return code 1)
+    
+        Bad disk or corrupted directory/FAT?  It hasn't happened to me yet.
+    
+     4. Error writing file:  FILENAME.OUT           (return code 1)
+    
+        The disk is probably full. A partial file may have been stored.
+    
+     5. Error trying to close file:  FILENAME.XXX   (return code 1)
+    
+        This shouldn't happen.  It hasn't happened to me except in testing
+        incomplete versions of the program.
+    
+     6. Fatal Error ...                             (return code 1)
+    
+        Something inexplicable happened, and the program aborted rather than
+        lock up the system.
+    
+              BINTEL.DOC  Version 1.0  February 1987            page 6 of 6 
+    
+     7. Not ready error ... 
+          Abort, Retry, Ignore?
+    
+        DOS messages covering most I/O operations. Refer to DOS manual for
+        details.  Common problems are disk drive door left open, write-
+        protect tabs covered,  etc...
+    
+     8. Unrecognized command:  /X           (return code 0 -- no error)
+    
+        This is a warning message that has no effect on the program.  A
+        switch command was entered that BINTEL doesn't recognize and it was
+        ignored.
+    
+     9. <Address> *** WARNING! Address overflow occurred *** 
+        (Binary --> Hex)                    (return code 2)
+    
+        If the binary file contains more than 64 K bytes, the address coun-
+        ter will overflow, since Intel format only allows 2-byte addresses.
+        Why would you want to download bigger files anyway, at least until
+        '271024' EPROM chips are available?  <Address> is the offset in
+        hexadecimal notation of the last paragraph before overflow.
+    
+    10. <Line #> <Paragr #> CRC error ... 
+        (Hex --> binary)                    (return code 1)
+    
+        The CRC value calculated by BINTEL doesn't agree with the one en-
+        coded in the Intel Hex file.  This may be a result of an error in
+        transmission or an incorrect format of the hex file.  <Line #> is
+        the line of the ASCII file, and <Paragr #> is the number of the
+        paragraph in which the discrepancy occurred.  Both are in decimal
+        notation.   BINTEL will process the whole file,  listing all para-
+        graphs with errors.
+    
+    11. <Line #> <Paragr #> Address error ... 
+        (Hex --> binary)                    (return code 1)
+    
+        The address value calculated by BINTEL doesn't agree with the one
+        given in the Intel Hex file. See comments under CRC error.
+    
+                          ---  End of BINTEL.DOC  ---
+    
