@@ -1,5 +1,5 @@
 # AppleBrainBoard
-Use the BrainBoard to load DOS 3.3 on Apple II power up or control+B Reset. 
+Use the BrainBoard to load DOS 3.3 on Apple II+ power up or control+B Reset. This code only works in an APPLE II+.
 Additionally a Control+C Reset will load DOS and then catalog a disk in disk drive #1.
 The code expects to be loaded into a 27C256 EPROM (or a EEPROM). Currently the code resides in the bank 0 of the Brain Board.
 I found the Brain Board for sale on Ebay. I since have located websites about the board.
