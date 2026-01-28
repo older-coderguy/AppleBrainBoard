@@ -380,6 +380,12 @@ _SETTEXT	LDA	#$FF
 ;
 ;  NOTE: $FB60 CLEARS SCREEN AND PRINTS APPLE ][
 ;
+; After boot you can go into the monitor (CALL-151) and then display this code.
+; 1000L - list out the program at $1000.
+; 1100L - list out the program that displays the string.
+; 2100L - Strings are moved here in the Apple.
+;
+;
 _GOMRBRD	LDA	#$A9
 		STA	$1000
 		LDA	#-1		;SETUP TO CLEAR THE STACK
@@ -619,6 +625,7 @@ SETVIDEO	LDA	#$A9
 ;		
 ;
 STOP		END			;
+
 
 
 
