@@ -15,19 +15,23 @@
 ;
 ;
 ;REVISION: 1-3-2026
-; ADD TO THE PROGRAM LOADED AT $1000 TO HANDLE SWITCHING OFF THE BRAIN BOARD.
+; ADD TO THE PROGRAM LOADED AT $1000 TO CALL $FB60 THAT PRINTS
+; APPLE ][.
 ;
 ;REVISION: 1-19-2026
 ; FIXED HOT KEYS SO THAT CATALOG AND MONITOR ENTRY WORKS.
+;
+;REVISION: 1-29-2026
+; Cleaned up this assembly file, removing assembly code that I had remarked out.
 ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 
-; RESET ROUTINE FOR DOS HOSS running in II+
+; RESET ROUTINE FOR BRAIN BOARD running in II+
 ; Processor: 6502
 ;
-; THIS CODE SET FOR DOS HOSS IN SLOT 4
+; THIS CODE SET FOR BRAIN BOARD IN SLOT 4
 ; This code must be loaded at $1000 in the EPROM. That works out as
 ; $D000 in the Brain Board. Make sure that the F8 ROM reset vestor at FFFC-FFFD
 ; Points to $D800 on power up or reset of the Apple II.
@@ -66,7 +70,7 @@ MOVEP3		EQU	$9E25
 RTSTEMP		EQU	$9E41
 
 ;
-; These equates are used by the main DosHoss initialization code
+; These equates are used by the main Brain Board initialization code
 ;
 COUNT		equ	$300	;USE AS A COUNTER WHEN NEEDED
 INVFLG		EQU	$32	;SET TO $FF FOR NORMAL VIDEO
@@ -106,9 +110,9 @@ WRTONLY		EQU	$C081	;Write ENABLE RAM. in II+ DOS 3.2 Read_Write track sector and
 				;Read-Deselect 2nd bank of $D000 - $DFFF RAM in language card. 
 HRAMOFF		EQU	$C082	;Write PROTECT RAM. in II+ DOS 3.2 Read_Write track sector and also
 				;Read-Deselect 2nd bank of $D000 - $DFFF RAM in language card.
-;HOSSOFF	EQU	$C0D1	;EXIT THE DOSHOSS ROM to Motherboard for slot 5
+;HOSSOFF	EQU	$C0D1	;EXIT THE Brain Board ROM to Motherboard for slot 5
 ;BANK1		EQU	$C0D2	;This switched to the upper bank of ROM ** no longer used by my code
-HOSSOFF		EQU	$C0C1	;EXIT THE DOSHOSS ROM to Motherboard FOR SLOT 4 !! CURRENTLY NOT USED
+HOSSOFF		EQU	$C0C1	;EXIT THE Brain Board to Motherboard FOR SLOT 4 !! CURRENTLY NOT USED
 BANK1		EQU	$C0C2	;This switched to the upper bank of ROM ** no longer used by my code
 CLRROM		EQU	$CFFF	;Turn off Flip Flops. Disable expansion ROM
 BASIC		EQU	$DFFF	;*** Looks like garbage in the II+.
@@ -245,7 +249,7 @@ _LINKLP2	LDA	_DOSLINK,X	;THE PURPOSE IS TO PREVENT
 		DEX			;DISCONNECTING DOS
 		BPL	_LINKLP2
 _LINKDNE	NOP	
-		CPY	#$0D		;m ??
+		CPY	#$0D		;M ??
 		BEQ	_RESET.M	;GO TO MONITOR
 		LDA	#$1B		;NO HELLO FLAG
 		PHA
@@ -267,7 +271,7 @@ _RESET.B	JSR	_MOVEDOS	;XFER DOS
 		LDA	#>DOSSTRT
 		PHA
 _DONORM		JSR	_SETTEXT
-		JMP	_GOMRBRD
+		JMP	_GOMRBRD	;go turn off the Brain Board
 ;
 ;
 _RESET.C	LDX	#3		;SET CSW AND KSW TO I/O ROUTS
@@ -275,28 +279,20 @@ _CATLP		LDA	DOSCSWL,X
 		STA	CSWL,X
 		DEX
 		BPL	_CATLP
-;		LDA	DOSWRMLO	;LOCATION $3D0
-;		PHA			;WARM START DOS AFTER CATALOG
-;		LDA	DOSWRMHI
-;		PHA
-;		LDA	CATALOGLO	;$A56E (DO CATALOG)
-;		PHA
-;		LDA	CATALOGHI
-;		PHA
 		LDA	ONERR		;FIX APPLESOFT ONERR FLAG
 		AND	#$7F		;SO DISKI/O ERROR WILL PRINT
 		STA	ONERR		;
 		LDA	#1		;FIX NO BUFFER FLAG FOR CATALOG
 		STA	BFFRFLG
-;		JSR	CATALOG
-;		JSR	DOSWARM
-		JSR	_SETTEXT
-		JMP	_GOMRBRD	;EXIT DOS HOSS
+		JSR	_SETTEXT	;Try to intialize the video
+		JMP	_GOMRBRD	;go turn off the Brain Board
 ;
 ;
 ;
-;		JMP	$FF59
-_RESET.M		JMP	_GOMRBRD	;EXIT DOS HOSS
+;
+;		JMP $FF59 is handled in the program at $1000
+;
+_RESET.M		JMP	_GOMRBRD	;go turn off the Brain Board
 ;
 ;
 ;
@@ -325,7 +321,7 @@ _BELP2		TYA
 ;
 ;		DFB	$FF,$FF,$FF	;Not needed since Move Dos is in the same
 ;		JSR	_DOSAWAY	;ROM bank.
-;		RTS			;
+;		RTS			;All this was from DOS HOSS code
 ;  
 ;
 ;
@@ -358,7 +354,10 @@ _MOVELP2	LDA	(SRCE),Y
 		STA	RTSTEMP
 		RTS
 ;
-;
+; I added this to try and set the video to normal
+; but the menu string that gets printed to the screen
+; on DOS load is still mixed inverse and normal characters.
+; 
 _SETTEXT	LDA	#$FF
 		STA	$32
 		STA	$C050
@@ -374,16 +373,16 @@ _SETTEXT	LDA	#$FF
 ;the normal Apple Reset at FFFc.FFFd
 ;
 ; Starting here we are writing a small assembly routing into memory starting at $1000.
-; Then calling it so that it can exit to the Brain Board. This program will turn off the 
-; Brain Board and then clean up various registers before exiting to the screen.
+; Remember that once the Brain Board has been switch off and control passed back to the
+; Apple nothing on the Brain Board is accessible. So this program is being put into the
+; Apple to handle shutting off the Brain Board and finishing the DOS load.
+; This program will turn off the Brain Board and then clean up various registers before
+; exiting to the screen.
 ;
 ;  NOTE: $FB60 CLEARS SCREEN AND PRINTS APPLE ][
+;  I ended up not calling this.
 ;
-; After boot you can go into the monitor (CALL-151) and then display this code.
-; 1000L - list out the program at $1000.
-; 1100L - list out the program that displays the string.
-; 2100L - Strings are moved here in the Apple.
-;
+; 
 ;
 _GOMRBRD	LDA	#$A9
 		STA	$1000
@@ -516,17 +515,19 @@ _GOMRBRD	LDA	#$A9
 		STA	$1032
 		LDA	#$11
 		STA	$1033
-		LDA	#$20		
-		STA	$1034
-		LDA	#$84
-		STA	$1035
-		LDA	#$9D
-		STA	$1036
-		LDA	#$60  
-		STA	$1037
+		LDA	#$20		;I found I must call $9D84 to re-hook DOS		
+		STA	$1034		;after it gets loaded from the Brain Board, but 
+		LDA	#$84		;calling $9D84 does not return, so I cannot print
+		STA	$1035		;to the screen normal text. If I do not call this the
+		LDA	#$9D		;string I print to the screen is normal text, but DOS
+		STA	$1036		;does not function. I don't actually need to print
+		LDA	#$60		;anything to the screen on DOS load, but thought it would  
+		STA	$1037		;be cool.
 ;
 ; PRINT MENU 
 ; Here we write the strings to the screen. Currently just saying DOS is loaded.
+; I haven't yet figured out why the text is printing to the screen as mixed flashing,
+; inverse and normal.
 ;
 		LDA	#$A0		;LOAD Y
 		STA	$1100		;
@@ -620,12 +621,10 @@ SETVIDEO	LDA	#$A9
 		STA	$1132
 ;
 ;
-		JMP	$1000		;JMP 1000  4C 00 03		
+		JMP	$1000		;JMP 1000  4C 00 01		
 ;		
 ;
 STOP		END			;
-
-
 
 
 
