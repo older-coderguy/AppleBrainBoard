@@ -15,6 +15,9 @@ https://www.willegal.net/appleii/brainboard.htm
 This latest version assembly WORKSV10.asm appears to be working as desired. The two master hex files "II+ WORKSV10 slot 4 256k Winbond.HEX"
 and "II+ WORKSV10 slot 5 256k Winbond.HEX" are ready to be loaded into a 27c256 or a Winbond EEPROM 27E257.
 
+The file "DOS#066d00.BIN" is DOS 3.3 I copied from my II+ to my old XP machine using ADT. I then used Ciderpress to get the raw binary data.
+The file should load into an eprom programmer application if read as a BIN file.
+
 Back in the 80's I converted an Apple ROM card to be a DOS HOSS from Jim Sather's book Understanding the Apple IIe.
 I took the ROMs I created from that project and extracted Apple DOS from those ROMs, as well as the F8 monitor code.
 I then packed this all into a new 27c256 EPROM. I then figured out a way to transfer the DOS into the Apple II+, doing it a bit different
