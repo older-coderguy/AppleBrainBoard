@@ -4,7 +4,9 @@ I do have a version that works in the IIe. I will share that after I clean up my
 of code to write to memory various values that let me know that the code had executed to various points. I find it helpful
 to write to memory as the program executes and then I can look back an walk through how far it got.
 
-Additionally a Control+C Reset will load DOS and then catalog a disk in disk drive #1.
+Additionally a Control+C Reset will load DOS and then catalog a disk in disk drive #1. Control+M Reset puts you into the Monitor, but
+disk access isn't working. I am working to figure that out. But you can exit the Monitor with 3D0G and then disk access is enabled again.
+
 The code expects to be loaded into a 27C256 EPROM (or a EEPROM). Currently the code resides in the bank 0 of the Brain Board.
 I found the Brain Board for sale on Ebay. I since have located websites about the board.
 Found this link regarding the Brain Board: 
