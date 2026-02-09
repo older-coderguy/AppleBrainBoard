@@ -1,8 +1,16 @@
 # AppleBrainBoard
-Use the BrainBoard to load DOS 3.3 on Apple II+ power up or control+B Reset. This code only works in an APPLE II+.
-I do have a version that works in the IIe. I will share that after I clean up my source code a bit. I had added a bunch
-of code to write to memory various values that let me know that the code had executed to various points. I find it helpful
-to write to memory as the program executes and then I can look back an walk through how far it got.
+Use the BrainBoard to load DOS 3.3 on Apple II+ or IIe power up. WORKSV10.ASM code only works in an APPLE II+. WORKSV12.ASM is for the IIe.
+After power up you can use the hot keys below.
+
+Hot keys-
+Control + B + Reset = Load DOS
+Control + C + Reset = Load DOS and Catalog disk
+Control + M + Reset = Enter the Monitor. DOS does not load. IF you exit the Monitor with 3D0G DOS loads. Or you can do the Control B.
+Control + Open-Apple + Reset = Boot from Disk
+Control + Closed-Apple + Reset = Launch Self Test. You can then Control + B + Reset to load DOS.
+
+Note that the IIe version looks for the Open and Closed Apple keys. If you hold Control + Open-Apple + Reset the Apple will reboot.
+Holding Control + CLosed Apple + Reset will launch the built in self test. The other hot keys work the same as in the II+. 
 
 Additionally a Control+C Reset will load DOS and then catalog a disk in disk drive #1. Control+M Reset puts you into the Monitor, but
 disk access isn't working. I am working to figure that out. But you can exit the Monitor with 3D0G and then disk access is enabled again.
