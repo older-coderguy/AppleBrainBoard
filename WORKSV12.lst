@@ -1,0 +1,563 @@
+0001   0000             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+0002   0000             ; $Id: DOS HOSS FOR IIe V12 2/8/2026 
+0003   0000             ;
+0004   0000             ;
+0005   0000             ;
+0006   0000             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+0007   0000             
+0008   0000             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+0009   0000             ; 
+0010   0000             ; RESET ROUTINE FOR BRAIN BOARD running in IIe
+0011   0000             ; Processor: 6502
+0012   0000             ;
+0013   0000             ; THIS CODE ASSUMES DOS HOSS IN SLOT 4
+0014   0000             ; load this code into D0 - f8 ROM
+0015   0000             ;
+0016   0000             ;
+0017   0000             ; HOT KEYS-
+0018   0000             ; CONTROL + B = LOAD DOS FROM BRAIN BOARD	
+0019   0000             ; CONTROL + C = LOAD DOS AND CATALOG DISK
+0020   0000             ; CONTROL + M = ENTER MONITOR. DOS NOT LOADED. 3D0G TO EXIT MONITOR STARTS DOS
+0021   0000             ; CONTROL + OPEN APPLE = NORMAL RESET - FORCES REBOOT
+0022   0000             ; CONTROL + CLOSED APPLE = NORMAL RESET - FORCES SELF TEST
+0023   0000             ;
+0024   0000             ; THESE ARE HANDY DEFINES FOR THE COMPILER
+0025   0000             ;
+0026   0000             #define EQU     .EQU
+0027   0000             #define ORG     .ORG
+0028   0000             #define RMB     .BLOCK
+0029   0000             #define FCB     .BYTE
+0030   0000             #define FCC     .TEXT
+0031   0000             #define FDB     .WORD
+0032   0000             #define	DW	.WORD	;define word
+0033   0000             #define DFB	.BYTE	;define byte
+0034   0000             #define equ     .EQU
+0035   0000             #define org     .ORG
+0036   0000             #define rmb     .BLOCK
+0037   0000             #define fcb     .BYTE
+0038   0000             #define fcc     .TEXT
+0039   0000             #define fdb     .WORD
+0040   0000             #define dfb	.BYTE
+0041   0000             #define	END	.END
+0042   0000             #define HOFFLOW	#$C1	;This is the slot number low byte $C1 = Slot 4
+0043   0000             			;$D1 = Slot 5
+0044   0000             			;use #define to assign a value to a variable name	
+0045   0000             ;
+0046   0000             ; These equates are used by the Move Dos routine
+0047   0000             ;
+0048   0000             SRCE		EQU	$6
+0049   0000             SRCEHI		EQU	$7
+0050   0000             DSTN		EQU	$8
+0051   0000             DSTNHI		EQU	$9
+0052   0000             MOVEP3		EQU	$9E25
+0053   0000             RTSTEMP		EQU	$9E41
+0054   0000             ;
+0055   0000             ;
+0056   0000             ; These equates are used by the main DosHoss initialization code
+0057   0000             ;
+0058   0000             PROMPT		EQU	$33
+0059   0000             CSWL		EQU	$36
+0060   0000             A1L		EQU	$3C
+0061   0000             A1H		EQU	$3D
+0062   0000             A2L		EQU	$3E
+0063   0000             A2H		EQU	$3F
+0064   0000             A4L		EQU	$42
+0065   0000             A4H		EQU	$43
+0066   0000             BFFRFLG		EQU	$45
+0067   0000             ONERR		EQU	$D8
+0068   0000             DOSWARM		EQU	$3D0
+0069   0000             DOSWRMHI	EQU	$3D
+0070   0000             DOSWRMLO	EQU	$00
+0071   0000             PWRUP		EQU	$3F4	;THIS IS PWREDUP HOLDS RANDOM VALUE IF A POWER UP
+0072   0000             SAVEPWRUP	EQU	$2000	;THIS IS PWREDUP HOLDS RANDOM VALUE IF A POWER UP
+0073   0000             CATALOG		EQU	$A56E
+0074   0000             CATALOGHI	EQU	$A5	;Catalog disk
+0075   0000             CATALOGLO	EQU	$6E	;Catalog disk
+0076   0000             DOSCSWL		EQU	$AA53	;DOS output hook. Default is $FDF0
+0077   0000             DOSCMDX		EQU	$AA5F	;DOS 3.2/3.3 Command number
+0078   0000             DOSSTRT		EQU	$B73A	;
+0079   0000             READKEY		EQU	$C000	;Peek to read keyboard. Value > 127 means a key has been pressed.
+0080   0000             KEYSTROBE	EQU	$C010	;Keyboard strobe. READ TO CLEAR STROBE.
+0081   0000             SAVEKEY		EQU	$2001	;SAVE THE LAST KEY PRESSED
+0082   0000             SPEAKER		EQU	$C030	;ONLY READ LOCATION $C030. SATHER DID AN STA IN HIS ORIGINAL CODE
+0083   0000             AN0OFF		EQU	$C058	;Poke 0 to Clear game AN0
+0084   0000             AN1OFF		EQU	$C05A	;Poke 0 to Clear game AN1
+0085   0000             OPENAPL		EQU	$C061	;*** NOT IN II+
+0086   0000             SLDAPL		EQU	$C062	;*** NOT IN II+
+0087   0000             RDONLY		EQU	$C080	;Write PROTECT RAM. Select 2nd bank of $D000 - $DFFF RAM in language card.
+0088   0000             				;$C084 does the same as $C080.
+0089   0000             WRTONLY		EQU	$C081	;Write ENABLE RAM. in II+ DOS 3.2 Read_Write track sector and also 
+0090   0000             				;Read-Deselect 2nd bank of $D000 - $DFFF RAM in language card. 
+0091   0000             HRAMOFF		EQU	$C082	;Write PROTECT RAM. in II+ DOS 3.2 Read_Write track sector and also
+0092   0000             				;Read-Deselect 2nd bank of $D000 - $DFFF RAM in language card.
+0093   0000             ;HOSSOFF	EQU	$C0D1	;EXIT THE DOSHOSS ROM to Motherboard for slot 5
+0094   0000             ;BANK1		EQU	$C0D2	;This switched to the upper bank of ROM ** no longer used by my code
+0095   0000             HOSSOFF		EQU	$C0C1	;EXIT THE DOSHOSS ROM to Motherboard FOR SLOT 4 !! CURRENTLY NOT USED
+0096   0000             BANK1		EQU	$C0C2	;This switched to the upper bank of ROM ** no longer used by my code
+0097   0000             CLRROM		EQU	$CFFF	;Turn off Flip Flops. Disable expansion ROM
+0098   0000             BASIC		EQU	$DFFF	;*** Looks like garbage in the II+.
+0099   0000             NRESET		EQU	$FA62	;Normal Reset Vector for II+ and IIe
+0100   0000             INIT		EQU	$FB2F	;Screen init. Reset Text mode
+0101   0000             GOTOCX		EQU	$FBB4	;*** Monitor memory location MD3.In new F8 ROM code here saves ROM states
+0102   0000             HOME		EQU	$FC58	;HOME. Clear screen. Cursor top left
+0103   0000             WAIT		EQU	$FCA8	;Call Wait loop. Set A register with calculation value
+0104   0000             MOVE		EQU	$FE2C	;monitor memory move
+0105   0000             SETNORM		EQU	$FE84	;Set video output to normal
+0106   0000             MONITOR		EQU	$FF58	;JSR here to find out where one is. Sets Overflow flag.
+0107   0000             NMIDSTN		EQU	$FFFA	;Address of NMI (Non-Maskable interupt) vector
+0108   0000             ;
+0109   0000             ; CURRENTLY THE SLOT IS HARD CODED AT THE BOTTOM OF THIS CODE.
+0110   0000             ; $C1 OR $D1 TO SPECIFY THE SLOT.
+0111   0000             ; 
+0112   0000             ; Set the slot value in HOFFLOW to specify the slot. See the EQU above.
+0113   0000             ;
+0114   0000             ; ** Note: I did not include Integer Basic. There was no room in the Brain Board
+0115   0000             ;          to fit Integer and Dos 3.3. All I really wanted was to have DOS load
+0116   0000             ;          instantly on power up.
+0117   0000             ;
+0118   0000             ;
+0119   D000             		.ORG	$D000
+0120   D000             ;**********************************************************
+0121   D000             ;
+0122   D000             ;	BEGIN RESET HANDLER
+0123   D000             ;	BEGIN RESET HANDLER
+0124   D000             ; RESET VECTOR IS FFFC AND FFFD. THIS CODE BEGINS AT $D000.
+0125   D000             ; ON POWER UP, THE F8 ROM SECTION HAS FFFC-FFFD LOADED WITH D000
+0126   D000             ; SO THE CPU VECTORS TO THIS PROGRAM. ONCE DOS HAS BEEN LOADED INTO THE APPLE RAM
+0127   D000             ; THIS PROGRAM PLACES A SHORT ASSEMBLER ROUTINE AT $1000. THIS ROUTUINE TURNS
+0128   D000             ; OFF THE BRAIN BOARD AND THEN DOES SOME RESET STUFF. IT ALSO CHECKS
+0129   D000             ; FOR THE HOT KEYS TO CATALOG DISK OR GO INTO THE MONITOR.
+0130   D000             ; THIS ROUTINE CHANGES HOW SATHER DID THE EXIT. HIS DOSHOSS WAS EXPECTING AN RTS
+0131   D000             ; TO BE AT A MOTHERBOARD ROM LOCATION AFTER THE DOSHOSS WAS TURNED OFF. IT SEEMS MORE
+0132   D000             ; FLEXIBLE TO HAVE A PROGRAM RUNNING IN THE APPLE MEMORY THAT TURNS OFF THE BRAIN BOARD AND
+0133   D000             ; CAN THEN CLEAN UP REGISTERS, CLEAR SCREEN AND COMPLETE THE BOOT.
+0134   D000             ;
+0135   D000             ;
+0136   D000             ;  CLEAR THE RAM AT $2000 TO $00's
+0137   D000             ;
+0138   D000 A2 FF       _BEGIN		LDX	#$FF
+0139   D002 A0 00       		LDY	#$00
+0140   D004 A9 00       _CLEAN		LDA	#$00		
+0141   D006 99 00 20    		STA	$2000,Y	;CLEAN MEMORY TO BEGIN
+0142   D009 C8          		INY
+0143   D00A CA          		DEX
+0144   D00B E0 FF       		CPX	#$FF
+0145   D00D D0 F5       		BNE	_CLEAN
+0146   D00F 4C 2B D0    		JMP	_DOSTART	;
+0147   D012             ;
+0148   D012             ;
+0149   D012 57 4F 52 4B _VERSION	.TEXT	"WORKSV11.ASM 2-8-2026"
+0149   D016 53 56 31 31 
+0149   D01A 2E 41 53 4D 
+0149   D01E 20 32 2D 38 
+0149   D022 2D 32 30 32 
+0149   D026 36 
+0150   D027             ;
+0151   D027 BD 9E       _DOSLINK	.WORD	$9EBD
+0152   D029 81 9E       		.WORD	$9E81
+0153   D02B             ;
+0154   D02B             ;
+0155   D02B 2C 62 C0    _DOSTART	BIT	SLDAPL
+0156   D02E 30 05       		BMI	_DONORM1	;BRANCH IF 7TH BIT IS SET = KEY DOWN
+0157   D030 2C 61 C0    		BIT	OPENAPL
+0158   D033 10 10       		BPL	_NOBUTTN	;BRANCH IF 7TH BIT IS CLEAR = KEY UP
+0159   D035 A9 A0       _DONORM1	LDA	#$A0		;OPEN OR CLOSED APPLE WAS DOWN
+0160   D037 8D 01 20    		STA	SAVEKEY		;SO DO A NORMAL RESET BASED ON WHICH
+0161   D03A 4C 5E D2    		JMP	_NORMRES	;WHICH APPLE KEY WAS HELD DOWN ON RESET
+0162   D03D A9 CA       _DONORM2	LDA	#$CA
+0163   D03F 8D 01 20    		STA	SAVEKEY
+0164   D042 4C 5E D2    		JMP	_NORMRES
+0165   D045             ;
+0166   D045             ;
+0167   D045 AD F3 03    _NOBUTTN	LDA	PWRUP-1		;LOAD POWER UP STATUS
+0168   D048 49 A5       		EOR	#$A5		;
+0169   D04A CD F4 03    		CMP	PWRUP
+0170   D04D 8D F4 03    		STA	PWRUP
+0171   D050 8D 00 20    		STA	SAVEPWRUP	;CURIOUS ABOUT THE LAST KEY PRESSED
+0172   D053 D0 0D       		BNE 	_DOHOSS		;BRANCH IF NOT A POWER UP
+0173   D055 AD 10 C0    		LDA	KEYSTROBE	;CHECK FOR KEYPRESS
+0174   D058 10 6B       		BPL	_DONORM		;NO KEY DOWN, NOT A POWER UP
+0175   D05A AD 00 C0    		LDA	READKEY
+0176   D05D 29 7F       		AND	#$7F		;DON'T CARE ABOUT MSB
+0177   D05F 8D 01 20    		STA	SAVEKEY		;SAVE LAST KEY PRESSED
+0178   D062 D8          _DOHOSS		CLD
+0179   D063 20 84 FE    		JSR	SETNORM		;DO A BIUNCH OF RESET STUFF
+0180   D066 20 2F FB    		JSR	INIT
+0181   D069 20 58 FC    		JSR	HOME
+0182   D06C AD 58 C0    		LDA	AN0OFF
+0183   D06F AD 5A C0    		LDA	AN1OFF
+0184   D072 A0 05       		LDY	#5
+0185   D074 20 B4 FB    		JSR	GOTOCX
+0186   D077 AD FF CF    		LDA	CLRROM
+0187   D07A 20 EC D0    		JSR	_DUMBELL	;FIRST DIFFERENT SPEAKER BEEP
+0188   D07D AD 00 C0    		LDA	READKEY		;WAS A POWER UP IF NO KEY DOWN
+0189   D080 10 33       		BPL	_NOHELLO
+0190   D082 AD 01 20    		LDA 	SAVEKEY
+0191   D085             ;		AND	#$7F		;DON'T CARE ABOUT MSB
+0192   D085             ;		CMP	#$41		;MASK LETTERS INTO CONTROL CODE 
+0193   D085             ;		BCC	_LESS		;BCC    *+4  BRANCH AHEAD 4 BYTES FROM PROG COUNTER
+0194   D085             ;		AND	#$1F
+0195   D085 A8          _LESS		TAY			;I CORRECTED THIS LINE 12-18-2025
+0196   D086 C0 03       		CPY	#$03		;C?
+0197   D088 F0 3E       		BEQ	_RESET.C	;CATALOG THE DISK IF C KEY DOWN
+0198   D08A A2 03       		LDX	#3
+0199   D08C BD 53 AA    _LINKLP1	LDA	DOSCSWL,X	;IF CSW AND KSW ARE EQUAL
+0200   D08F D5 36       		CMP	CSWL,X		;TO DOSCSW AND DOSKSW
+0201   D091 D0 0D       		BNE	_LINKDNE	;ASSUME DOS WAS IN USE
+0202   D093 CA          		DEX			;AND RECONNECT DOS
+0203   D094 10 F6       		BPL	_LINKLP1	;THIS ONLY MATTERS IN BOOTLESS
+0204   D096 A2 03       		LDX	#3		;RESETS SUCH AS CONTRPOL-I
+0205   D098 BD 27 D0    _LINKLP2	LDA	_DOSLINK,X	;THE PURPOSE IS TO PREVENT
+0206   D09B 95 36       		STA	CSWL,X		;A CONTROL-I RESET FROM
+0207   D09D CA          		DEX			;DISCONNECTING DOS
+0208   D09E 10 F8       		BPL	_LINKLP2
+0209   D0A0 EA          _LINKDNE	NOP	
+0210   D0A1 C0 0D       		CPY	#$0D		;m ??
+0211   D0A3 F0 3C       		BEQ	_RESET.M	;GO TO MONITOR
+0212   D0A5 A9 1B       		LDA	#$1B		;NO HELLO FLAG
+0213   D0A7 48          		PHA
+0214   D0A8 C0 02       		CPY	#$02		;B ??
+0215   D0AA F0 0C       		BEQ	_RESET.B	;BOOT ONLY
+0216   D0AC 68          		PLA
+0217   D0AD A9 00       		LDA	#$0		;DO HELLO FLAG
+0218   D0AF 48          		PHA
+0219   D0B0 C0 08       		CPY	#$08		;H ??
+0220   D0B2 F0 04       		BEQ	_RESET.B	;MOVE DOS - WAS _DOMOVE BRANCH
+0221   D0B4 68          		PLA
+0222   D0B5 A9 1B       _NOHELLO	LDA	#$1B		;NO HELLO FLAG
+0223   D0B7 48          		PHA
+0224   D0B8 20 FE D0    _RESET.B	JSR	_MOVEDOS	;XFER DOS
+0225   D0BB 68          		PLA			;GET DO HELLO FLAG
+0226   D0BC 8D 5F AA    		STA	DOSCMDX
+0227   D0BF A9 01       		LDA	#<DOSSTRT	;COLD START IS $B73B
+0228   D0C1 48          		PHA
+0229   D0C2 A9 00       		LDA	#>DOSSTRT
+0230   D0C4 48          		PHA
+0231   D0C5 4C 2F D1    _DONORM		JMP	_GOMRBRD
+0232   D0C8             ;
+0233   D0C8             ;
+0234   D0C8 EA          _RESET.C	NOP
+0235   D0C9 EA          		NOP
+0236   D0CA A2 03       		LDX	#3		;SET CSW AND KSW TO I/O ROUTS
+0237   D0CC BD 53 AA    _CATLP		LDA	DOSCSWL,X
+0238   D0CF 95 36       		STA	CSWL,X
+0239   D0D1 CA          		DEX
+0240   D0D2 10 F8       		BPL	_CATLP
+0241   D0D4             ;		LDA	DOSWRMLO	;LOCATION $3D0
+0242   D0D4             ;		PHA			;WARM START DOS AFTER CATALOG
+0243   D0D4             ;		LDA	DOSWRMHI
+0244   D0D4             ;		PHA
+0245   D0D4             ;		LDA	CATALOGLO	;$A56E (DO CATALOG)
+0246   D0D4             ;		PHA
+0247   D0D4             ;		LDA	CATALOGHI
+0248   D0D4             ;		PHA
+0249   D0D4 A5 D8       		LDA	ONERR		;FIX APPLESOFT ONERR FLAG
+0250   D0D6 29 7F       		AND	#$7F		;SO DISKI/O ERROR WILL PRINT
+0251   D0D8 85 D8       		STA	ONERR		;
+0252   D0DA A9 01       		LDA	#1		;FIX NO BUFFER FLAG FOR CATALOG
+0253   D0DC 85 45       		STA	BFFRFLG
+0254   D0DE             ;		JSR	CATALOG
+0255   D0DE             ;		JSR	DOSWARM
+0256   D0DE 4C 2F D1    		JMP	_GOMRBRD	;EXIT DOS HOSS
+0257   D0E1             ;
+0258   D0E1             ;
+0259   D0E1             ;
+0260   D0E1 EA          _RESET.M	NOP
+0261   D0E2 EA          		NOP	
+0262   D0E3 A9 01       		LDA	#<MONITOR	;GO TO MONITOR ($FF59)
+0263   D0E5 48          		PHA
+0264   D0E6 A9 00       		LDA	#>MONITOR
+0265   D0E8 48          		PHA
+0266   D0E9 4C 2F D1    		JMP	_GOMRBRD	;EXIT DOS HOSS
+0267   D0EC             ;
+0268   D0EC             ;
+0269   D0EC             ;
+0270   D0EC             ;		
+0271   D0EC             ;_NMISRCE	DW	$3FB
+0272   D0EC             ;		DW	$FA62
+0273   D0EC             ;
+0274   D0EC             ;
+0275   D0EC             ;
+0276   D0EC A0 16       _DUMBELL	LDY	#$16		;SLIGHTLY DIFFERENT BELL SOUND
+0277   D0EE A2 08       _BELP1		LDX	#8
+0278   D0F0 98          _BELP2		TYA
+0279   D0F1 20 A8 FC    		JSR	WAIT
+0280   D0F4 AD 30 C0    		LDA	SPEAKER		;WRITE $C030 LOCATION
+0281   D0F7 CA          		DEX			;
+0282   D0F8 D0 F6       		BNE	_BELP2
+0283   D0FA 88          		DEY
+0284   D0FB D0 F1       		BNE	_BELP1
+0285   D0FD 60          		RTS
+0286   D0FE             ;
+0287   D0FE             ;
+0288   D0FE             ;
+0289   D0FE EA          _MOVEDOS	NOP
+0290   D0FF EA          		NOP
+0291   D100             ;
+0292   D100             ;  Move Dos
+0293   D100             ;
+0294   D100             ; I changed Sather's code and have everything in the same ROM bank.
+0295   D100             ;
+0296   D100             ;		DFB	$FF,$FF,$FF	;Not needed since Move Dos is in the same
+0297   D100             ;		JSR	_DOSAWAY	;ROM bank.
+0298   D100             ;		RTS			;
+0299   D100             ;  
+0300   D100             ;
+0301   D100             ;
+0302   D100             ;
+0303   D100 A9 00       _DOSAWAY	LDA	#0	
+0304   D102 85 06        		STA	SRCE
+0305   D104 85 08        		STA	DSTN
+0306   D106 A9 9D       		LDA	#$9D
+0307   D108 85 09       		STA	DSTNHI
+0308   D10A A9 D4       		LDA	#$D4		;$D400 SHOULD BE START OF DOS IN D000 ROM
+0309   D10C 85 07       		STA	SRCEHI		;I had to pack the DOS from the original
+0310   D10E A0 00       		LDY	#0		;DosHoss ROMs into Bank0 of the Brain Board.
+0311   D110 B1 06       _MOVELP2	LDA	(SRCE),Y
+0312   D112 91 08       		STA	(DSTN),Y
+0313   D114 C8          		INY
+0314   D115 D0 F9       		BNE	_MOVELP2
+0315   D117 E6 09       		INC	DSTNHI
+0316   D119 E6 07       		INC	SRCEHI
+0317   D11B A5 07       		LDA	SRCEHI
+0318   D11D C9 F7       		CMP	#$F7		;DOS should end at F6FF
+0319   D11F D0 EF       		BNE	_MOVELP2	;SO DO A COMPARE OF THE SRCEHI TO F7 AND BRANCH UNTIL EQUAL
+0320   D121             ;		 			;CHECKING USING BCC IF SRCEHI IS LESS THAN OR EQUAL TO #$F7
+0321   D121             ;		
+0322   D121 A9 60       		LDA	#$60
+0323   D123 8D 41 9E    		STA	RTSTEMP
+0324   D126 20 25 9E    		JSR	MOVEP3
+0325   D129 A9 A9       		LDA	#$A9
+0326   D12B 8D 41 9E    		STA	RTSTEMP
+0327   D12E 60          		RTS
+0328   D12F             ;		
+0329   D12F             ; Now exit to the Apple Motherboard ROM
+0330   D12F             ;
+0331   D12F A9 A9       _GOMRBRD	LDA	#$A9
+0332   D131 8D 00 10    		STA	$1000
+0333   D134 A9 FF       		LDA	#-1		;SETUP TO CLEAR THE STACK
+0334   D136 8D 01 10    		STA	$1001
+0335   D139 A9 9A       		LDA	#$9A		;TXS WILL CLEAR THE STACK
+0336   D13B 8D 02 10    		STA	$1002
+0337   D13E A9 AD       		LDA	#$AD		;
+0338   D140 8D 03 10    		STA	$1003
+0339   D143 A9 C1       		LDA	HOFFLOW		;D1 = SLOT 5, C1 = SLOT 4
+0340   D145             ; Should also be able to get the low byte of the Brain Board slot as such:
+0341   D145             ;  (#$HOSSOFF & $00FF) replaces HOFFLOW
+0342   D145             ;
+0343   D145             ; Interesting observation. If you put this card into the wrong slot, on computer boot
+0344   D145             ; it displays 'HACKIN FOOL!' instead of Apple ][ and it locks up. Seems to be related to
+0345   D145             ; when I changed the code above from hard coded slot low byte to using HOFFLOW. The assembler
+0346   D145             ; saw this as doing a LDA zero page instead of LDA absolute.
+0347   D145             ;
+0348   D145             ;
+0349   D145 8D 04 10    		STA	$1004		;CHANGE HOFFLOW EQU VALUE TO SET SLOT
+0350   D148 A9 C0       		LDA	#$C0		;LDA $C0XX TO TURN OFF BRAIN BOARD
+0351   D14A 8D 05 10    		STA	$1005		;
+0352   D14D A9 A9       		LDA	#$A9		;Next I am just doing some Reset stuff
+0353   D14F 8D 06 10    		STA	$1006		;to clean things up after switching from
+0354   D152 A9 FF       		LDA	#-1		;the Brain Board ROM.
+0355   D154 8D 07 10    		STA	$1007
+0356   D157 A9 9A       		LDA	#$9A		;
+0357   D159 8D 08 10    		STA	$1008		; 
+0358   D15C             ;		
+0359   D15C             ;		
+0360   D15C             ;
+0361   D15C A9 D8       		LDA	#$D8		;CLD
+0362   D15E 8D 09 10    		STA	$1009
+0363   D161 A9 20       		LDA	#$20
+0364   D163 8D 0A 10    		STA	$100A
+0365   D166 A9 84       		LDA	#$84		;
+0366   D168 8D 0B 10    		STA	$100B
+0367   D16B A9 FE       		LDA	#$FE		;
+0368   D16D 8D 0C 10    		STA	$100C
+0369   D170 A9 20       		LDA	#$20		;
+0370   D172 8D 0D 10    		STA	$100D
+0371   D175 A9 2F       		LDA	#$2F		;
+0372   D177 8D 0E 10    		STA	$100E
+0373   D17A A9 FB       		LDA	#$FB		;
+0374   D17C 8D 0F 10    		STA	$100F
+0375   D17F A9 20       		LDA	#$20
+0376   D181 8D 10 10    		STA	$1010
+0377   D184 A9 93       		LDA	#$93
+0378   D186 8D 11 10    		STA	$1011
+0379   D189 A9 FE       		LDA	#$FE
+0380   D18B 8D 12 10    		STA	$1012
+0381   D18E A9 20       		LDA	#$20
+0382   D190 8D 13 10    		STA	$1013
+0383   D193 A9 89       		LDA	#$89
+0384   D195 8D 14 10    		STA	$1014
+0385   D198 A9 FE       		LDA	#$FE
+0386   D19A 8D 15 10    		STA	$1015
+0387   D19D             ;		
+0388   D19D             ;		
+0389   D19D A9 20       		LDA	#$20		;LDA ABSOLUTE
+0390   D19F 8D 16 10    		STA	$1016
+0391   D1A2 A9 60       		LDA	#$60		;LOW BYTE SAVEKEY
+0392   D1A4 8D 17 10    		STA	$1017
+0393   D1A7 A9 FB       		LDA	#$FB		;HI BYTE SAVEKEY
+0394   D1A9 8D 18 10    		STA	$1018
+0395   D1AC A9 AD       		LDA	#$AD		;CMP IMMEDIATE TO $0D CONTROL + M
+0396   D1AE 8D 19 10    		STA	$1019
+0397   D1B1 A9 01       		LDA	#$01		;SAVEKEY LOW BYTE
+0398   D1B3 8D 1A 10    		STA	$101A
+0399   D1B6 A9 20       		LDA	#$20		;BNE
+0400   D1B8 8D 1B 10    		STA	$101B
+0401   D1BB A9 C9       		LDA	#$C9		;CMP IMMEDIATE TO $03 CONTROL + C
+0402   D1BD 8D 1C 10    		STA	$101C		;
+0403   D1C0 A9 03       		LDA	#$03		;
+0404   D1C2 8D 1D 10    		STA	$101D		;
+0405   D1C5 A9 D0       		LDA	#$D0		;BNE
+0406   D1C7 8D 1E 10    		STA	$101E
+0407   D1CA A9 03       		LDA	#$03		;JUMP 3 BYTES FORWARD IF NOT EQUAL
+0408   D1CC 8D 1F 10    		STA	$101F
+0409   D1CF A9 20       		LDA	#$20		;
+0410   D1D1 8D 20 10    		STA	$1020
+0411   D1D4 A9 6E       		LDA	#$6E  		;Catalog the disk by calling $A56E
+0412   D1D6 8D 21 10    		STA	$1021
+0413   D1D9 A9 A5       		LDA	#$A5
+0414   D1DB 8D 22 10    		STA	$1022
+0415   D1DE             ;
+0416   D1DE A9 AD       		LDA	#$AD		
+0417   D1E0 8D 23 10    		STA	$1023
+0418   D1E3 A9 01       		LDA	#$01
+0419   D1E5 8D 24 10    		STA	$1024
+0420   D1E8 A9 20       		LDA	#$20
+0421   D1EA 8D 25 10    		STA	$1025
+0422   D1ED A9 C9       		LDA	#$C9		;CMP IMMEDIATE TO #0D (Control+M) 
+0423   D1EF 8D 26 10    		STA	$1026		;JMP TO $FF59 WHICH IS THE MONITOR
+0424   D1F2             ;
+0425   D1F2             ;
+0426   D1F2 A9 0D       		LDA	#$0D		;
+0427   D1F4 8D 27 10    		STA	$1027
+0428   D1F7 A9 D0       		LDA	#$D0		;BNE
+0429   D1F9 8D 28 10    		STA	$1028
+0430   D1FC A9 03       		LDA	#$03		;JUMP 3 BYTES FORWARD IF NOT EQUAL
+0431   D1FE 8D 29 10    		STA	$1029
+0432   D201 A9 20       		LDA	#$20		;
+0433   D203 8D 2A 10    		STA	$102A
+0434   D206 A9 65       		LDA	#$65		;
+0435   D208 8D 2B 10    		STA	$102B
+0436   D20B A9 FF       		LDA	#$FF		;
+0437   D20D 8D 2C 10    		STA	$102C
+0438   D210 A9 EA       		LDA	#$EA		;
+0439   D212 8D 2D 10    		STA	$102D
+0440   D215 A9 EA       		LDA	#$EA		;
+0441   D217 8D 2E 10    		STA	$102E
+0442   D21A A9 EA       		LDA	#$EA
+0443   D21C 8D 2F 10    		STA	$102F
+0444   D21F A9 EA       		LDA	#$EA
+0445   D221 8D 30 10    		STA	$1030
+0446   D224 A9 EA       		LDA	#$EA
+0447   D226 8D 31 10    		STA	$1031
+0448   D229 A9 4C       		LDA	#$4C		;
+0449   D22B 8D 32 10    		STA	$1032
+0450   D22E A9 84       		LDA	#$84
+0451   D230 8D 33 10    		STA	$1033
+0452   D233 A9 9D       		LDA	#$9D
+0453   D235 8D 34 10    		STA	$1034
+0454   D238             ;		
+0455   D238             ; Remember you can use CONTROL + B TO EXIT MONITOR AND LOAD DOS		
+0456   D238             ;
+0457   D238 A9 EA       		LDA	#$EA
+0458   D23A 8D 35 10    		STA	$1035
+0459   D23D             ;
+0460   D23D A9 EA       		LDA	#$EA
+0461   D23F 8D 36 10    		STA	$1036
+0462   D242 A9 EA       		LDA	#$EA
+0463   D244 8D 37 10    		STA	$1037
+0464   D247 A9 EA       		LDA	#$EA		
+0465   D249 8D 38 10    		STA	$1038
+0466   D24C A9 EA       		LDA	#$EA
+0467   D24E 8D 39 10    		STA	$1039
+0468   D251 A9 EA       		LDA	#$EA
+0469   D253 8D 3A 10    		STA	$103A
+0470   D256 A9 60       		LDA	#$60  
+0471   D258 8D 3B 10    		STA	$103B
+0472   D25B             ;
+0473   D25B             ;
+0474   D25B             ;
+0475   D25B 4C 00 10    		JMP	$1000		;JMP 1000  4C 00 10
+0476   D25E             ;
+0477   D25E             ;
+0478   D25E             ;  Here we handle a control reset with one of the Apple keys held down
+0479   D25E             ;
+0480   D25E             ;
+0481   D25E A9 A9       _NORMRES	LDA	#$A9		;NEED TO TURN OFF THE BRAIN BOARD
+0482   D260 8D 50 10    		STA	$1050		;THEN DO RESET BASED ON APPLE KEY
+0483   D263 A9 FF       		LDA	#-1		;SETUP TO CLEAR THE STACK
+0484   D265 8D 51 10    		STA	$1051
+0485   D268 A9 9A       		LDA	#$9A		;TXS WILL CLEAR THE STACK
+0486   D26A 8D 52 10    		STA	$1052
+0487   D26D A9 AD       		LDA	#$AD		;
+0488   D26F 8D 53 10    		STA	$1053
+0489   D272 A9 C1       		LDA	HOFFLOW		;D1 = SLOT 5, C1 = SLOT 4
+0490   D274             ;
+0491   D274             ;
+0492   D274 8D 54 10    		STA	$1054		;CHANGE HOFFLOW EQU VALUE TO SET SLOT
+0493   D277 A9 C0       		LDA	#$C0		;LDA $C0XX TO TURN OFF BRAIN BOARD
+0494   D279 8D 55 10    		STA	$1055
+0495   D27C A9 4C       		LDA	#$4C		;DEPENDING ON APPLE KEY DOWN
+0496   D27E 8D 56 10    		STA	$1056		;THE APPLE WILL DO SELF TEST
+0497   D281 A9 62       		LDA	#$62		;OR REBOOT. 
+0498   D283 8D 57 10    		STA	$1057		;OPEN APPLE KEY FORCES REBOOT.
+0499   D286 A9 FA       		LDA	#$FA		;CLOSED APPLE KEY FORCES SELF TEST
+0500   D288 8D 58 10    		STA	$1058
+0501   D28B A9 60       		LDA	#$60
+0502   D28D 8D 59 10    		STA	$1059
+0503   D290 4C 50 10    		JMP	$1050
+0504   D293             ;
+0505   D293             ;
+0506   D293             ;		JMP	$FA62		;THE OPEN AND CLOSED APPLE KEYS ARE
+0507   D293             ;		RTS			;CHECKED DURING RESET
+0508   D293             ;		
+0509   D293             ;
+0510   D293             STOP		END			;
+
+ADDR  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+-----------------------------------------------------
+D000  A2 FF A0 00 A9 00 99 00 20 C8 CA E0 FF D0 F5 4C
+D010  2B D0 57 4F 52 4B 53 56 31 31 2E 41 53 4D 20 32
+D020  2D 38 2D 32 30 32 36 BD 9E 81 9E 2C 62 C0 30 05
+D030  2C 61 C0 10 10 A9 A0 8D 01 20 4C 5E D2 A9 CA 8D
+D040  01 20 4C 5E D2 AD F3 03 49 A5 CD F4 03 8D F4 03
+D050  8D 00 20 D0 0D AD 10 C0 10 6B AD 00 C0 29 7F 8D
+D060  01 20 D8 20 84 FE 20 2F FB 20 58 FC AD 58 C0 AD
+D070  5A C0 A0 05 20 B4 FB AD FF CF 20 EC D0 AD 00 C0
+D080  10 33 AD 01 20 A8 C0 03 F0 3E A2 03 BD 53 AA D5
+D090  36 D0 0D CA 10 F6 A2 03 BD 27 D0 95 36 CA 10 F8
+D0A0  EA C0 0D F0 3C A9 1B 48 C0 02 F0 0C 68 A9 00 48
+D0B0  C0 08 F0 04 68 A9 1B 48 20 FE D0 68 8D 5F AA A9
+D0C0  01 48 A9 00 48 4C 2F D1 EA EA A2 03 BD 53 AA 95
+D0D0  36 CA 10 F8 A5 D8 29 7F 85 D8 A9 01 85 45 4C 2F
+D0E0  D1 EA EA A9 01 48 A9 00 48 4C 2F D1 A0 16 A2 08
+D0F0  98 20 A8 FC AD 30 C0 CA D0 F6 88 D0 F1 60 EA EA
+D100  A9 00 85 06 85 08 A9 9D 85 09 A9 D4 85 07 A0 00
+D110  B1 06 91 08 C8 D0 F9 E6 09 E6 07 A5 07 C9 F7 D0
+D120  EF A9 60 8D 41 9E 20 25 9E A9 A9 8D 41 9E 60 A9
+D130  A9 8D 00 10 A9 FF 8D 01 10 A9 9A 8D 02 10 A9 AD
+D140  8D 03 10 A9 C1 8D 04 10 A9 C0 8D 05 10 A9 A9 8D
+D150  06 10 A9 FF 8D 07 10 A9 9A 8D 08 10 A9 D8 8D 09
+D160  10 A9 20 8D 0A 10 A9 84 8D 0B 10 A9 FE 8D 0C 10
+D170  A9 20 8D 0D 10 A9 2F 8D 0E 10 A9 FB 8D 0F 10 A9
+D180  20 8D 10 10 A9 93 8D 11 10 A9 FE 8D 12 10 A9 20
+D190  8D 13 10 A9 89 8D 14 10 A9 FE 8D 15 10 A9 20 8D
+D1A0  16 10 A9 60 8D 17 10 A9 FB 8D 18 10 A9 AD 8D 19
+D1B0  10 A9 01 8D 1A 10 A9 20 8D 1B 10 A9 C9 8D 1C 10
+D1C0  A9 03 8D 1D 10 A9 D0 8D 1E 10 A9 03 8D 1F 10 A9
+D1D0  20 8D 20 10 A9 6E 8D 21 10 A9 A5 8D 22 10 A9 AD
+D1E0  8D 23 10 A9 01 8D 24 10 A9 20 8D 25 10 A9 C9 8D
+D1F0  26 10 A9 0D 8D 27 10 A9 D0 8D 28 10 A9 03 8D 29
+D200  10 A9 20 8D 2A 10 A9 65 8D 2B 10 A9 FF 8D 2C 10
+D210  A9 EA 8D 2D 10 A9 EA 8D 2E 10 A9 EA 8D 2F 10 A9
+D220  EA 8D 30 10 A9 EA 8D 31 10 A9 4C 8D 32 10 A9 84
+D230  8D 33 10 A9 9D 8D 34 10 A9 EA 8D 35 10 A9 EA 8D
+D240  36 10 A9 EA 8D 37 10 A9 EA 8D 38 10 A9 EA 8D 39
+D250  10 A9 EA 8D 3A 10 A9 60 8D 3B 10 4C 00 10 A9 A9
+D260  8D 50 10 A9 FF 8D 51 10 A9 9A 8D 52 10 A9 AD 8D
+D270  53 10 A9 C1 8D 54 10 A9 C0 8D 55 10 A9 4C 8D 56
+D280  10 A9 62 8D 57 10 A9 FA 8D 58 10 A9 60 8D 59 10
+D290  4C 50 10 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+
+tasm: Number of errors = 0
