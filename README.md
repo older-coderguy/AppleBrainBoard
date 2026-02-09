@@ -3,10 +3,15 @@ Use the BrainBoard to load DOS 3.3 on Apple II+ or IIe power up. WORKSV10.ASM co
 After power up you can use the hot keys below.
 
 Hot keys-
+
 Control + B + Reset = Load DOS
+
 Control + C + Reset = Load DOS and Catalog disk
+
 Control + M + Reset = Enter the Monitor. DOS does not load. IF you exit the Monitor with 3D0G DOS loads. Or you can do the Control B.
+
 Control + Open-Apple + Reset = Boot from Disk
+
 Control + Closed-Apple + Reset = Launch Self Test. You can then Control + B + Reset to load DOS.
 
 Note that the IIe version looks for the Open and Closed Apple keys. If you hold Control + Open-Apple + Reset the Apple will reboot.
